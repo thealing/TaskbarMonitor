@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Header.h"
+#include "Log.h"
 
 void InitCounters();
 

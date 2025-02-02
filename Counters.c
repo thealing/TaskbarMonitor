@@ -28,22 +28,26 @@ static void UpdateCpuCounter()
 
 	ULONGLONG UserTime;
 
-	if (GetSystemTimes((PFILETIME)&IdleTime, (PFILETIME)&KernelTime, (PFILETIME)&UserTime))
+	if (GetSystemTimes((PFILETIME)&IdleTime, (PFILETIME)&KernelTime, (PFILETIME)&UserTime) == FALSE)
 	{
-		ULONGLONG ElapsedTime = (KernelTime - LastKernelTime) + (UserTime - LastUserTime);
+		LogMessage(LOG_WARNING, _T("Failed to get processor times."));
 
-		ULONGLONG UsedTime = ElapsedTime - (IdleTime - LastIdleTime);
+		return;
+	}
 
-		if (ElapsedTime > 0)
-		{
-			CpuUsage = (int)(100 * UsedTime / ElapsedTime);
+	ULONGLONG ElapsedTime = (KernelTime - LastKernelTime) + (UserTime - LastUserTime);
 
-			LastIdleTime = IdleTime;
+	ULONGLONG UsedTime = ElapsedTime - (IdleTime - LastIdleTime);
 
-			LastKernelTime = KernelTime;
+	if (ElapsedTime > 0)
+	{
+		CpuUsage = (int)(100 * UsedTime / ElapsedTime);
 
-			LastUserTime = UserTime;
-		}
+		LastIdleTime = IdleTime;
+
+		LastKernelTime = KernelTime;
+
+		LastUserTime = UserTime;
 	}
 }
 
@@ -51,10 +55,14 @@ static void UpdateMemoryCounter()
 {
 	MEMORYSTATUSEX MemoryStatus = { sizeof(MemoryStatus) };
 
-	if (GlobalMemoryStatusEx(&MemoryStatus))
+	if (GlobalMemoryStatusEx(&MemoryStatus) == FALSE)
 	{
-		MemoryUsage = MemoryStatus.dwMemoryLoad;
+		LogMessage(LOG_WARNING, _T("Failed to get memory status."));
+
+		return;
 	}
+
+	MemoryUsage = MemoryStatus.dwMemoryLoad;
 }
 
 static void UpdateNetworkCounters()
@@ -65,41 +73,57 @@ static void UpdateNetworkCounters()
 
 	ULONG InterfaceCount = 0;
 
-	if (GetIfTable(NULL, &InterfaceCount, FALSE) == ERROR_INSUFFICIENT_BUFFER)
+	if (GetIfTable(NULL, &InterfaceCount, FALSE) != ERROR_INSUFFICIENT_BUFFER)
 	{
-		MIB_IFTABLE* Table = malloc(sizeof(MIB_IFTABLE) + InterfaceCount * sizeof(MIB_IFROW));
+		LogMessage(LOG_WARNING, _T("Failed to query interface count."));
 
-		if (Table != NULL && GetIfTable(Table, &InterfaceCount, FALSE) == NO_ERROR)
+		return;
+	}
+
+	MIB_IFTABLE* Table = malloc(sizeof(MIB_IFTABLE) + InterfaceCount * sizeof(MIB_IFROW));
+
+	if (Table == NULL)
+	{
+		LogMessage(LOG_WARNING, _T("Failed to allocate the interface table."));
+
+		return;
+	}
+
+	if (GetIfTable(Table, &InterfaceCount, FALSE) == NO_ERROR)
+	{
+		DWORD DownloadedBytes = 0;
+
+		DWORD UploadedBytes = 0;
+
+		for (ULONG i = 0; i < Table->dwNumEntries; i++)
 		{
-			DWORD DownloadedBytes = 0;
+			MIB_IFROW* Row = &Table->table[i];
 
-			DWORD UploadedBytes = 0;
-
-			for (ULONG i = 0; i < Table->dwNumEntries; i++)
+			if (Row->dwOperStatus < IF_OPER_STATUS_DISCONNECTED)
 			{
-				MIB_IFROW* Row = &Table->table[i];
-
-				if (Row->dwOperStatus < IF_OPER_STATUS_DISCONNECTED)
-				{
-					continue;
-				}
-
-				DownloadedBytes += Row->dwInOctets / 8;
-
-				UploadedBytes += Row->dwOutOctets / 8;
+				continue;
 			}
 
-			DownloadSpeed = (int)(DownloadedBytes - LastDownloadedBytes);
+			DownloadedBytes += Row->dwInOctets / 8;
 
-			UploadSpeed = (int)(UploadedBytes - LastUploadedBytes);
-
-			LastDownloadedBytes = DownloadedBytes;
-
-			LastUploadedBytes = UploadedBytes;
+			UploadedBytes += Row->dwOutOctets / 8;
 		}
 
-		free(Table);
+		DownloadSpeed = (int)(DownloadedBytes - LastDownloadedBytes);
+
+		UploadSpeed = (int)(UploadedBytes - LastUploadedBytes);
+
+		LastDownloadedBytes = DownloadedBytes;
+
+		LastUploadedBytes = UploadedBytes;
 	}
+	else
+	{
+		LogMessage(LOG_WARNING, _T("Failed to get the interface table."));
+	}
+	
+
+	free(Table);
 }
 
 static void UpdateDiskCounters()
@@ -110,32 +134,44 @@ static void UpdateDiskCounters()
 
 	HMODULE NtDllModule = LoadLibrary(_T("ntdll.dll"));
 
-	if (NtDllModule != NULL)
+	if (NtDllModule == NULL)
 	{
-		PNtQuerySystemInformation NtQuerySystemInformation = (PNtQuerySystemInformation)GetProcAddress(NtDllModule, "NtQuerySystemInformation");
+		LogMessage(LOG_WARNING, _T("Failed to load ntdll module."));
 
-		if (NtQuerySystemInformation)
-		{
-			SYSTEM_PERFORMANCE_INFORMATION spi = { 0 };
-
-			if (NtQuerySystemInformation(SystemPerformanceInformation, &spi, sizeof(spi), NULL) == ERROR_SUCCESS)
-			{
-				ULONGLONG ReadAmount = spi.ReadTransferCount.QuadPart;
-
-				ULONGLONG WriteAmount = spi.WriteTransferCount.QuadPart;
-
-				DiskReadSpeed = (int)(ReadAmount - LastReadAmount);
-
-				DiskWriteSpeed = (int)(WriteAmount - LastWriteAmount);
-
-				LastReadAmount = ReadAmount;
-
-				LastWriteAmount = WriteAmount;
-			}
-		}
-
-		FreeLibrary(NtDllModule);
+		return;
 	}
+
+	PNtQuerySystemInformation NtQuerySystemInformation = (PNtQuerySystemInformation)GetProcAddress(NtDllModule, "NtQuerySystemInformation");
+
+	if (NtQuerySystemInformation != NULL)
+	{
+		SYSTEM_PERFORMANCE_INFORMATION PerformanceInformation = { 0 };
+
+		if (NtQuerySystemInformation(SystemPerformanceInformation, &PerformanceInformation, sizeof(PerformanceInformation), NULL) == ERROR_SUCCESS)
+		{
+			ULONGLONG ReadAmount = PerformanceInformation.ReadTransferCount.QuadPart;
+
+			ULONGLONG WriteAmount = PerformanceInformation.WriteTransferCount.QuadPart;
+
+			DiskReadSpeed = (int)(ReadAmount - LastReadAmount);
+
+			DiskWriteSpeed = (int)(WriteAmount - LastWriteAmount);
+
+			LastReadAmount = ReadAmount;
+
+			LastWriteAmount = WriteAmount;
+		}
+		else
+		{
+			LogMessage(LOG_WARNING, _T("Failed to get query the system performance information."));
+		}
+	}
+	else
+	{
+		LogMessage(LOG_WARNING, _T("Failed to get the address of NtQuerySystemInformation."));
+	}
+
+	FreeLibrary(NtDllModule);
 }
 
 void InitCounters()
