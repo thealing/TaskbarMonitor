@@ -149,10 +149,13 @@
   <ItemGroup>
     <ClInclude Include="Counters.h" />
     <ClInclude Include="Header.h" />
+    <ClInclude Include="Log.h" />
     <ClInclude Include="Main.h" />
+    <ClInclude Include="Winternl.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Counters.c" />
+    <ClCompile Include="Log.c" />
     <ClCompile Include="Main.c" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

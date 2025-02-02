@@ -8,6 +8,13 @@ static int WindowHeight;
 
 int main()
 {
+
+#ifndef _DEBUG
+
+	LogSetFile(_T("TaskbarMonitor.log"));
+
+#endif
+
 	WindowClass.hCursor = LoadCursor(NULL, IDC_ARROW);
 
 	WindowClass.hIcon = LoadIcon(NULL, IDI_APPLICATION);
@@ -18,6 +25,8 @@ int main()
 
 	if (RegisterClass(&WindowClass) == FALSE)
 	{
+		LogMessage(LOG_ERROR, _T("Failed to register the window class."));
+
 		return 1;
 	}
 
@@ -95,7 +104,7 @@ QUIT_CODE RunWindow()
 
 	WindowHeight = AppContainerSize.cy - PADDING * 2;
 
-	WindowWidth = WindowHeight * 5;
+	WindowWidth = WindowHeight * 750 / 100;
 
 	SIZE ReducedSize = { AppContainerSize.cx - WindowWidth - PADDING * 2, AppContainerSize.cy };
 
@@ -258,11 +267,15 @@ LRESULT CALLBACK WindowProcedure(HWND Window, UINT Message, WPARAM WParam, LPARA
 
 			TCHAR Buffer[16];
 
+			// CPU PERCENTAGE
+
 			SetRect(&Rect, PADDING, 0, 0, 0);
 
 			_stprintf(Buffer, _T("CPU: %2d %%"), GetCpuUsage());
 			
 			DrawText(DeviceContext, Buffer, _tcslen(Buffer), &Rect, DT_TOP | DT_SINGLELINE | DT_NOCLIP);
+
+			// MEMORY PERCENTAGE
 
 			SetRect(&Rect, PADDING, 0, 0, WindowHeight - 1);
 
@@ -270,7 +283,9 @@ LRESULT CALLBACK WindowProcedure(HWND Window, UINT Message, WPARAM WParam, LPARA
 
 			DrawText(DeviceContext, Buffer, _tcslen(Buffer), &Rect, DT_BOTTOM | DT_SINGLELINE | DT_NOCLIP);
 
-			SetRect(&Rect, WindowWidth * 4 / 9 + PADDING, 0, 0, 0);
+			// UPLOAD SPEED
+
+			SetRect(&Rect, WindowWidth * 28 / 100 + PADDING, 0, 0, 0);
 
 			_stprintf(Buffer, _T("UP: "));
 
@@ -280,7 +295,9 @@ LRESULT CALLBACK WindowProcedure(HWND Window, UINT Message, WPARAM WParam, LPARA
 
 			DrawText(DeviceContext, Buffer, _tcslen(Buffer), &Rect, DT_TOP | DT_SINGLELINE | DT_NOCLIP);
 
-			SetRect(&Rect, WindowWidth * 4 / 9 + PADDING, 0, 0, WindowHeight - 1);
+			// DOWNLOAD SPEED
+
+			SetRect(&Rect, WindowWidth * 28 / 100 + PADDING, 0, 0, WindowHeight - 1);
 
 			_stprintf(Buffer, _T("DN: "));
 
@@ -289,6 +306,32 @@ LRESULT CALLBACK WindowProcedure(HWND Window, UINT Message, WPARAM WParam, LPARA
 			_stprintf(Buffer + _tcslen(Buffer), _T("/s"));
 
 			DrawText(DeviceContext, Buffer, _tcslen(Buffer), &Rect, DT_BOTTOM | DT_SINGLELINE | DT_NOCLIP);
+
+			// DISK READ SPEED
+			
+			SetRect(&Rect, WindowWidth * 62 / 100 + PADDING, 0, 0, 0);
+
+			_stprintf(Buffer, _T("DR: "));
+
+			FormatDataQuantity(Buffer + _tcslen(Buffer), GetDiskReadSpeed());
+
+			_stprintf(Buffer + _tcslen(Buffer), _T("/s"));
+
+			DrawText(DeviceContext, Buffer, _tcslen(Buffer), &Rect, DT_TOP | DT_SINGLELINE | DT_NOCLIP);
+			
+			// DISK WRITE SPEED
+
+			SetRect(&Rect, WindowWidth * 62 / 100 + PADDING, 0, 0, WindowHeight - 1);
+
+			_stprintf(Buffer, _T("DW: "));
+
+			FormatDataQuantity(Buffer + _tcslen(Buffer), GetDiskWriteSpeed());
+
+			_stprintf(Buffer + _tcslen(Buffer), _T("/s"));
+
+			DrawText(DeviceContext, Buffer, _tcslen(Buffer), &Rect, DT_BOTTOM | DT_SINGLELINE | DT_NOCLIP);
+
+			// END
 			
 			SelectObject(DeviceContext, OldFont);
 			
@@ -496,21 +539,4 @@ void FormatDataQuantity(TCHAR* Buffer, double Value)
 	_stprintf(Buffer, _T("INF"));
 
 	LogMessage(LOG_WARNING, _T("Quantity out of range."));
-}
-
-void LogMessage(LOG_LEVEL Level, const TCHAR* Format, ...)
-{
-	static const TCHAR* Labels[LOG_COUNT] = { _T("INFO "), _T("WARN "), _T("ERROR") };
-
-	va_list ArgumentList;
-
-	va_start(ArgumentList, Format);
-
-	_tprintf(_T("%s | "), Labels[Level]);
-
-	_vtprintf(Format, ArgumentList);
-
-	_tprintf(_T("\n"));
-
-	va_end(ArgumentList);
 }

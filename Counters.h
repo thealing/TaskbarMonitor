@@ -13,3 +13,7 @@ int GetMemoryUsage();
 int GetDownloadSpeed();
 
 int GetUploadSpeed();
+
+int GetDiskReadSpeed();
+
+int GetDiskWriteSpeed();

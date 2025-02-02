@@ -1,14 +1,6 @@
 #include "Counters.h"
 
-static ULONGLONG LastIdleTime;
-
-static ULONGLONG LastKernelTime;
-
-static ULONGLONG LastUserTime;
-
-static int LastUploadedBytes;
-
-static int LastDownloadedBytes;
+#include "Winternl.h"
 
 static int CpuUsage;
 
@@ -18,19 +10,22 @@ static int DownloadSpeed;
 
 static int UploadSpeed;
 
-void InitCounters()
-{
-	UpdateCounters();
+static int DiskReadSpeed;
 
-	UpdateCounters();
-}
+static int DiskWriteSpeed;
 
-void UpdateCounters()
+static void UpdateCpuCounter()
 {
+	static ULONGLONG LastIdleTime;
+
+	static ULONGLONG LastKernelTime;
+
+	static ULONGLONG LastUserTime;
+
 	ULONGLONG IdleTime;
-	
+
 	ULONGLONG KernelTime;
-	
+
 	ULONGLONG UserTime;
 
 	if (GetSystemTimes((PFILETIME)&IdleTime, (PFILETIME)&KernelTime, (PFILETIME)&UserTime))
@@ -50,6 +45,23 @@ void UpdateCounters()
 			LastUserTime = UserTime;
 		}
 	}
+}
+
+static void UpdateMemoryCounter()
+{
+	MEMORYSTATUSEX MemoryStatus = { sizeof(MemoryStatus) };
+
+	if (GlobalMemoryStatusEx(&MemoryStatus))
+	{
+		MemoryUsage = MemoryStatus.dwMemoryLoad;
+	}
+}
+
+static void UpdateNetworkCounters()
+{
+	static int LastUploadedBytes;
+
+	static int LastDownloadedBytes;
 
 	ULONG InterfaceCount = 0;
 
@@ -88,13 +100,60 @@ void UpdateCounters()
 
 		free(Table);
 	}
+}
 
-	MEMORYSTATUSEX MemoryStatus = { sizeof(MemoryStatus) };
+static void UpdateDiskCounters()
+{
+	static ULONGLONG LastReadAmount;
 
-	if (GlobalMemoryStatusEx(&MemoryStatus))
+	static ULONGLONG LastWriteAmount;
+
+	HMODULE NtDllModule = LoadLibrary(_T("ntdll.dll"));
+
+	if (NtDllModule != NULL)
 	{
-		MemoryUsage = MemoryStatus.dwMemoryLoad;
+		PNtQuerySystemInformation NtQuerySystemInformation = (PNtQuerySystemInformation)GetProcAddress(NtDllModule, "NtQuerySystemInformation");
+
+		if (NtQuerySystemInformation)
+		{
+			SYSTEM_PERFORMANCE_INFORMATION spi = { 0 };
+
+			if (NtQuerySystemInformation(SystemPerformanceInformation, &spi, sizeof(spi), NULL) == ERROR_SUCCESS)
+			{
+				ULONGLONG ReadAmount = spi.ReadTransferCount.QuadPart;
+
+				ULONGLONG WriteAmount = spi.WriteTransferCount.QuadPart;
+
+				DiskReadSpeed = (int)(ReadAmount - LastReadAmount);
+
+				DiskWriteSpeed = (int)(WriteAmount - LastWriteAmount);
+
+				LastReadAmount = ReadAmount;
+
+				LastWriteAmount = WriteAmount;
+			}
+		}
+
+		FreeLibrary(NtDllModule);
 	}
+}
+
+void InitCounters()
+{
+	UpdateCounters();
+
+	UpdateCounters();
+}
+
+void UpdateCounters()
+{
+	UpdateCpuCounter();
+
+	UpdateMemoryCounter();
+
+	UpdateNetworkCounters();
+
+	UpdateDiskCounters();
 }
 
 int GetCpuUsage()
@@ -115,4 +174,14 @@ int GetDownloadSpeed()
 int GetUploadSpeed()
 {
 	return UploadSpeed;
+}
+
+int GetDiskReadSpeed()
+{
+	return DiskReadSpeed; 
+}
+
+int GetDiskWriteSpeed()
+{
+	return DiskWriteSpeed; 
 }
