@@ -11,9 +11,11 @@ int main()
 
 #ifndef _DEBUG
 
-	LogSetFile(_T("TaskbarMonitor.log"));
+	LogSetFile(LOG_FILE_NAME);
 
 #endif
+
+	InitSettings();
 
 	WindowClass.hCursor = LoadCursor(NULL, IDC_ARROW);
 
@@ -251,16 +253,22 @@ LRESULT CALLBACK WindowProcedure(HWND Window, UINT Message, WPARAM WParam, LPARA
 		}
 		case WM_PAINT: 
 		{
+			SETTINGS Settings;
+
+			GetSettings(&Settings);
+
 			PAINTSTRUCT PaintStruct;
 
 			HDC DeviceContext = BeginPaint(Window, &PaintStruct);
 
+			SetTextColor(DeviceContext, Settings.TextColor);
+
 			SetBkMode(DeviceContext, TRANSPARENT);
 
-			Rectangle(DeviceContext, 0, 0, WindowWidth, WindowHeight);
+			FillRect(DeviceContext, &PaintStruct.rcPaint, GetStockObject(NULL_BRUSH));
 			
 			HFONT Font = CreateFont(WindowHeight / 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, FONT_NAME);
-			
+
 			HGDIOBJ OldFont = SelectObject(DeviceContext, Font);
 
 			RECT Rect;
@@ -341,6 +349,37 @@ LRESULT CALLBACK WindowProcedure(HWND Window, UINT Message, WPARAM WParam, LPARA
 			
 			return 0;
 		}
+		case WM_ERASEBKGND:
+		{
+			SETTINGS Settings;
+
+			GetSettings(&Settings);
+
+			// Clearing the control with a color blends it with the accent color.
+
+			// So using color 0 makes the control is transparent.
+
+			// TODO: How does it work on windows 7, 8 and 11?
+
+			COLORREF Color = Settings.Transparent ? 0 : Settings.BackgroundColor;
+
+			HDC DeviceContext = (HDC)WParam;
+
+			RECT ClientRect = { 0 };
+
+			GetClientRect(Window, &ClientRect);
+
+			HBRUSH Brush = CreateSolidBrush(Color);
+
+			if (FillRect(DeviceContext, &ClientRect, Brush) == FALSE)
+			{
+				LogMessage(LOG_WARNING, _T("Failed to clear background."));
+			}
+
+			DeleteObject(Brush);
+
+			return 0;
+		}
 		case WM_LBUTTONDOWN:
 		{
 			LogMessage(LOG_INFO, _T("Left click received."));
@@ -352,6 +391,8 @@ LRESULT CALLBACK WindowProcedure(HWND Window, UINT Message, WPARAM WParam, LPARA
 		case WM_RBUTTONDOWN:
 		{
 			LogMessage(LOG_INFO, _T("Right click received."));
+
+			ShowSettingsDialog();
 
 			return 0;
 		}
@@ -389,7 +430,7 @@ LRESULT CALLBACK WindowProcedure(HWND Window, UINT Message, WPARAM WParam, LPARA
 
 			UpdateCounters();
 
-			RedrawWindow(Window, NULL, NULL, RDW_INVALIDATE);
+			RedrawWindow(Window, NULL, NULL, RDW_ERASE | RDW_INVALIDATE);
 
 			return 0;
 		}
