@@ -4,6 +4,9 @@ static FILE* LogFile;
 
 void LogSetFile(const TCHAR* Path)
 {
+
+#ifndef _DEBUG
+
 	if (LogFile != NULL)
 	{
 		fclose(LogFile);
@@ -17,6 +20,9 @@ void LogSetFile(const TCHAR* Path)
 	{
 		LogFile = _tfopen(Path, _T("w"));
 	}
+
+#endif
+
 }
 
 void LogMessage(LOG_LEVEL Level, const TCHAR* Format, ...)

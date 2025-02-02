@@ -8,12 +8,17 @@ static int WindowHeight;
 
 int main()
 {
+	return Program();
+}
 
-#ifndef _DEBUG
+int WINAPI WinMain(_In_ HINSTANCE Instance, _In_opt_ HINSTANCE PreviousInstance, _In_ LPSTR CommandLine, _In_ int ShowMode)
+{
+	return Program();
+}
 
+int Program()
+{
 	LogSetFile(LOG_FILE_NAME);
-
-#endif
 
 	InitSettings();
 
@@ -43,14 +48,11 @@ int main()
 
 		if (QuitCode == QUIT_CLOSED)
 		{
-			return 0;
-		}
-
-		if (QuitCode == QUIT_CHANGED)
-		{
-			continue;
+			break;
 		}
 	}
+
+	return 0;
 }
 
 QUIT_CODE RunWindow()
@@ -150,7 +152,7 @@ QUIT_CODE RunWindow()
 		DispatchMessage(&Msg);
 	}
 
-	int QuitCode = Msg.wParam;
+	QUIT_CODE QuitCode = (QUIT_CODE)Msg.wParam;
 
 	LogMessage(LOG_INFO, _T("The message loop exited with code: %d."), QuitCode);
 
@@ -168,7 +170,7 @@ QUIT_CODE RunWindow()
 		return QUIT_ERROR;
 	}
 
-	if (QuitCode != QUIT_CHANGED)
+	if (QuitCode == QUIT_CLOSED || QuitCode == QUIT_RESTART)
 	{
 		if (SetWindowPos(AppContainerWindow, NULL, 0, 0, AppContainerSize.cx, AppContainerSize.cy, SWP_NOMOVE) == FALSE)
 		{
@@ -246,8 +248,16 @@ LRESULT CALLBACK WindowProcedure(HWND Window, UINT Message, WPARAM WParam, LPARA
 			{
 				LogMessage(LOG_WARNING, _T("The window has been unexpectedly terminated."));
 
-				PostQuitMessage(QUIT_CHANGED);
+				PostQuitMessage(QUIT_ERROR);
 			}
+
+			return 0;
+		}
+		case WM_CLOSE:
+		{
+			LogMessage(LOG_INFO, _T("Window has been closed."));
+
+			PostQuitMessage(QUIT_CLOSED);
 
 			return 0;
 		}
@@ -264,8 +274,6 @@ LRESULT CALLBACK WindowProcedure(HWND Window, UINT Message, WPARAM WParam, LPARA
 			SetTextColor(DeviceContext, Settings.TextColor);
 
 			SetBkMode(DeviceContext, TRANSPARENT);
-
-			FillRect(DeviceContext, &PaintStruct.rcPaint, GetStockObject(NULL_BRUSH));
 			
 			HFONT Font = CreateFont(WindowHeight / 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, FONT_NAME);
 
@@ -281,7 +289,7 @@ LRESULT CALLBACK WindowProcedure(HWND Window, UINT Message, WPARAM WParam, LPARA
 
 			_stprintf(Buffer, _T("CPU: %2d %%"), GetCpuUsage());
 			
-			DrawText(DeviceContext, Buffer, _tcslen(Buffer), &Rect, DT_TOP | DT_SINGLELINE | DT_NOCLIP);
+			DrawText(DeviceContext, Buffer, (int)_tcslen(Buffer), &Rect, DT_TOP | DT_SINGLELINE | DT_NOCLIP);
 
 			// MEMORY PERCENTAGE
 
@@ -289,7 +297,7 @@ LRESULT CALLBACK WindowProcedure(HWND Window, UINT Message, WPARAM WParam, LPARA
 
 			_stprintf(Buffer, _T("MEM: %2d %%"), GetMemoryUsage());
 
-			DrawText(DeviceContext, Buffer, _tcslen(Buffer), &Rect, DT_BOTTOM | DT_SINGLELINE | DT_NOCLIP);
+			DrawText(DeviceContext, Buffer, (int)_tcslen(Buffer), &Rect, DT_BOTTOM | DT_SINGLELINE | DT_NOCLIP);
 
 			// UPLOAD SPEED
 
@@ -301,7 +309,7 @@ LRESULT CALLBACK WindowProcedure(HWND Window, UINT Message, WPARAM WParam, LPARA
 
 			_stprintf(Buffer + _tcslen(Buffer), _T("/s"));
 
-			DrawText(DeviceContext, Buffer, _tcslen(Buffer), &Rect, DT_TOP | DT_SINGLELINE | DT_NOCLIP);
+			DrawText(DeviceContext, Buffer, (int)_tcslen(Buffer), &Rect, DT_TOP | DT_SINGLELINE | DT_NOCLIP);
 
 			// DOWNLOAD SPEED
 
@@ -313,7 +321,7 @@ LRESULT CALLBACK WindowProcedure(HWND Window, UINT Message, WPARAM WParam, LPARA
 
 			_stprintf(Buffer + _tcslen(Buffer), _T("/s"));
 
-			DrawText(DeviceContext, Buffer, _tcslen(Buffer), &Rect, DT_BOTTOM | DT_SINGLELINE | DT_NOCLIP);
+			DrawText(DeviceContext, Buffer, (int)_tcslen(Buffer), &Rect, DT_BOTTOM | DT_SINGLELINE | DT_NOCLIP);
 
 			// DISK READ SPEED
 			
@@ -325,7 +333,7 @@ LRESULT CALLBACK WindowProcedure(HWND Window, UINT Message, WPARAM WParam, LPARA
 
 			_stprintf(Buffer + _tcslen(Buffer), _T("/s"));
 
-			DrawText(DeviceContext, Buffer, _tcslen(Buffer), &Rect, DT_TOP | DT_SINGLELINE | DT_NOCLIP);
+			DrawText(DeviceContext, Buffer, (int)_tcslen(Buffer), &Rect, DT_TOP | DT_SINGLELINE | DT_NOCLIP);
 			
 			// DISK WRITE SPEED
 
@@ -337,7 +345,7 @@ LRESULT CALLBACK WindowProcedure(HWND Window, UINT Message, WPARAM WParam, LPARA
 
 			_stprintf(Buffer + _tcslen(Buffer), _T("/s"));
 
-			DrawText(DeviceContext, Buffer, _tcslen(Buffer), &Rect, DT_BOTTOM | DT_SINGLELINE | DT_NOCLIP);
+			DrawText(DeviceContext, Buffer, (int)_tcslen(Buffer), &Rect, DT_BOTTOM | DT_SINGLELINE | DT_NOCLIP);
 
 			// END
 			
@@ -355,11 +363,10 @@ LRESULT CALLBACK WindowProcedure(HWND Window, UINT Message, WPARAM WParam, LPARA
 
 			GetSettings(&Settings);
 
-			// Clearing the control with a color blends it with the accent color.
-
+			// When desktop composition is active (this is always the case on Windows 10 and onwards),
+			// clearing the control with a color blends it with the accent color.
 			// So using color 0 makes the control is transparent.
-
-			// TODO: How does it work on windows 7, 8 and 11?
+			// But what if we want a black background color instead of a transparent one?
 
 			COLORREF Color = Settings.Transparent ? 0 : Settings.BackgroundColor;
 
@@ -384,15 +391,18 @@ LRESULT CALLBACK WindowProcedure(HWND Window, UINT Message, WPARAM WParam, LPARA
 		{
 			LogMessage(LOG_INFO, _T("Left click received."));
 
-			PostQuitMessage(QUIT_CLOSED);
-
 			return 0;
 		}
 		case WM_RBUTTONDOWN:
 		{
 			LogMessage(LOG_INFO, _T("Right click received."));
 
-			ShowSettingsDialog();
+			if (ShowSettingsDialog(Window))
+			{
+				LogMessage(LOG_INFO, _T("Settings changed."));
+
+				PostQuitMessage(QUIT_RESTART);
+			}
 
 			return 0;
 		}

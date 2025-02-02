@@ -26,8 +26,12 @@ enum QUIT_CODE
 
 	QUIT_CHANGED,
 
+	QUIT_RESTART,
+
 	QUIT_COUNT
 };
+
+int Program();
 
 QUIT_CODE RunWindow();
 

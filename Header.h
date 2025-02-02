@@ -18,4 +18,6 @@ typedef enum LOG_LEVEL LOG_LEVEL;
 
 typedef enum QUIT_CODE QUIT_CODE;
 
+typedef enum MENU_OPTION MENU_OPTION;
+
 typedef struct SETTINGS SETTINGS;
