@@ -151,12 +151,14 @@
     <ClInclude Include="Header.h" />
     <ClInclude Include="Log.h" />
     <ClInclude Include="Main.h" />
+    <ClInclude Include="Settings.h" />
     <ClInclude Include="Winternl.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Counters.c" />
     <ClCompile Include="Log.c" />
     <ClCompile Include="Main.c" />
+    <ClCompile Include="Settings.c" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

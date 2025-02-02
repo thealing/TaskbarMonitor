@@ -2,7 +2,9 @@
 
 #include "Counters.h"
 
-#include "Log.h"
+#include "Settings.h"
+
+#define LOG_FILE_NAME _T("TaskbarMonitor.log")
 
 #define WINDOW_CLASS_NAME _T("A0EBA48E-45B2-4AB9-84D8-286CA6C89637")
 
