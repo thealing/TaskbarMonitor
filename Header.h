@@ -12,7 +12,11 @@
 
 #include <stdio.h>
 
+#include <uxtheme.h>
+
 #pragma comment(lib, "iphlpapi.lib")
+
+#pragma comment(lib, "UxTheme.lib")
 
 typedef enum LOG_LEVEL LOG_LEVEL;
 

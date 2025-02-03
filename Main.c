@@ -26,7 +26,7 @@ int Program()
 
 	WindowClass.lpfnWndProc = WindowProcedure;
 
-	if (RegisterClass(&WindowClass) == FALSE)
+	if (RegisterClass(&WindowClass) == 0)
 	{
 		LogMessage(LOG_ERROR, _T("Failed to register the window class."));
 
@@ -120,7 +120,7 @@ QUIT_CODE RunWindow()
 
 	SIZE ReducedSize = { AppContainerSize.cx - WindowWidth - PADDING * 2, AppContainerSize.cy };
 
-	if (SetWindowPos(AppContainerWindow, NULL, 0, 0, ReducedSize.cx, ReducedSize.cy, SWP_NOMOVE) == FALSE)
+	if (SetWindowPos(AppContainerWindow, NULL, 0, 0, ReducedSize.cx, ReducedSize.cy, SWP_NOZORDER | SWP_NOMOVE) == FALSE)
 	{
 		LogMessage(LOG_ERROR, _T("Failed to adjust the size of the app container window."));
 
@@ -180,7 +180,7 @@ QUIT_CODE RunWindow()
 
 	if (QuitCode == QUIT_CLOSED || QuitCode == QUIT_RESTART)
 	{
-		if (SetWindowPos(AppContainerWindow, NULL, 0, 0, AppContainerSize.cx, AppContainerSize.cy, SWP_NOMOVE) == FALSE)
+		if (SetWindowPos(AppContainerWindow, NULL, 0, 0, AppContainerSize.cx, AppContainerSize.cy, SWP_NOZORDER | SWP_NOMOVE) == FALSE)
 		{
 			LogMessage(LOG_ERROR, _T("Failed to reset the app container window."));
 
@@ -341,7 +341,7 @@ LRESULT CALLBACK WindowProcedure(HWND Window, UINT Message, WPARAM WParam, LPARA
 			{
 				SetRect(&Rect, TotalWidth * CurrentWidth / SIZE_DENOM + PADDING, 0, 0, WindowSize.cy - 1);
 
-				_stprintf(Buffer, _T("UP: "));
+				_stprintf(Buffer, _T("NU: "));
 
 				FormatDataQuantity(Buffer + _tcslen(Buffer), GetUploadSpeed());
 
@@ -349,7 +349,7 @@ LRESULT CALLBACK WindowProcedure(HWND Window, UINT Message, WPARAM WParam, LPARA
 
 				DrawText(DeviceContext, Buffer, (int)_tcslen(Buffer), &Rect, DT_TOP | DT_SINGLELINE | DT_NOCLIP);
 
-				_stprintf(Buffer, _T("DN: "));
+				_stprintf(Buffer, _T("ND: "));
 
 				FormatDataQuantity(Buffer + _tcslen(Buffer), GetDownloadSpeed());
 
@@ -370,31 +370,58 @@ LRESULT CALLBACK WindowProcedure(HWND Window, UINT Message, WPARAM WParam, LPARA
 		}
 		case WM_ERASEBKGND:
 		{
-			SETTINGS Settings;
-
-			GetSettings(&Settings);
-
-			// When desktop composition is active (this is always the case on Windows 10 and onwards),
-			// clearing the control with a color blends it with the accent color.
-			// So using color 0 makes the control is transparent.
-			// But what if we want a black background color instead of a transparent one?
-
-			COLORREF Color = Settings.Transparent ? 0 : Settings.BackgroundColor;
-
 			HDC DeviceContext = (HDC)WParam;
 
 			RECT ClientRect = { 0 };
 
 			GetClientRect(Window, &ClientRect);
 
-			HBRUSH Brush = CreateSolidBrush(Color);
+			SETTINGS Settings;
 
-			if (FillRect(DeviceContext, &ClientRect, Brush) == FALSE)
+			GetSettings(&Settings);
+
+			if (Settings.Transparent)
 			{
-				LogMessage(LOG_WARNING, _T("Failed to clear background."));
-			}
+				HBRUSH Brush = (HBRUSH)GetStockObject(BLACK_BRUSH);
 
-			DeleteObject(Brush);
+				if (FillRect(DeviceContext, &ClientRect, Brush) == FALSE)
+				{
+					LogMessage(LOG_WARNING, _T("Failed to clear background."));
+				}
+			}
+			else
+			{
+				BufferedPaintInit();
+
+				HDC BufferedDeviceContext;
+
+				HPAINTBUFFER PaintBuffer = BeginBufferedPaint(DeviceContext, &ClientRect, BPBF_DIB, NULL, &BufferedDeviceContext);
+
+				if (PaintBuffer) 
+				{
+					HBRUSH Brush = CreateSolidBrush(Settings.BackgroundColor);
+
+					if (FillRect(BufferedDeviceContext, &ClientRect, Brush) == FALSE)
+					{
+						LogMessage(LOG_WARNING, _T("Failed to clear the buffered device context."));
+					}
+
+					DeleteObject(Brush);
+
+					if (BufferedPaintSetAlpha(PaintBuffer, NULL, 255) != S_OK)
+					{
+						LogMessage(LOG_WARNING, _T("Failed to set the alpha."));
+					}
+
+					EndBufferedPaint(PaintBuffer, TRUE);
+				}
+				else
+				{
+					LogMessage(LOG_WARNING, _T("Failed to begin buffered painting."));
+				}
+
+				BufferedPaintUnInit();
+			}
 
 			return 0;
 		}
