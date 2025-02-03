@@ -1,11 +1,5 @@
 #include "main.h"
 
-static WNDCLASS WindowClass;
-
-static int WindowWidth;
-
-static int WindowHeight;
-
 int main()
 {
 	return Program();
@@ -21,6 +15,8 @@ int Program()
 	LogSetFile(LOG_FILE_NAME);
 
 	InitSettings();
+
+	WNDCLASS WindowClass = { 0 };
 
 	WindowClass.hCursor = LoadCursor(NULL, IDC_ARROW);
 
@@ -106,7 +102,7 @@ QUIT_CODE RunWindow()
 
 	GetRectSize(&AppContainerRect, &AppContainerSize);
 
-	WindowHeight = AppContainerSize.cy - PADDING * 2;
+	int WindowHeight = AppContainerSize.cy - PADDING * 2;
 
 	SETTINGS Settings;
 
@@ -120,7 +116,7 @@ QUIT_CODE RunWindow()
 
 	TotalWidth += SIZE_NETWORK_COLUMN * Settings.ShowNetworkTrafficSpeeds;
 
-	WindowWidth = WindowHeight * SIZE_RATIO / SIZE_DENOM * TotalWidth / SIZE_DENOM;
+	int WindowWidth = WindowHeight * SIZE_RATIO / SIZE_DENOM * TotalWidth / SIZE_DENOM;
 
 	SIZE ReducedSize = { AppContainerSize.cx - WindowWidth - PADDING * 2, AppContainerSize.cy };
 
@@ -135,7 +131,7 @@ QUIT_CODE RunWindow()
 
 	int WindowY = AppContainerRect.top - ParentRect.top + PADDING;
 
-	HWND Window = CreateWindow(WindowClass.lpszClassName, NULL, WS_CHILD | WS_VISIBLE, WindowX, WindowY, WindowWidth, WindowHeight, ParentWindow, NULL, NULL, NULL);
+	HWND Window = CreateWindow(WINDOW_CLASS_NAME, NULL, WS_CHILD | WS_VISIBLE, WindowX, WindowY, WindowWidth, WindowHeight, ParentWindow, NULL, NULL, NULL);
 
 	if (Window == NULL)
 	{
@@ -286,8 +282,12 @@ LRESULT CALLBACK WindowProcedure(HWND Window, UINT Message, WPARAM WParam, LPARA
 			SetTextColor(DeviceContext, Settings.TextColor);
 
 			SetBkMode(DeviceContext, TRANSPARENT);
+
+			SIZE WindowSize;
+
+			GetRectSize(&PaintStruct.rcPaint, &WindowSize);
 			
-			HFONT Font = CreateFont(WindowHeight / 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, FONT_NAME);
+			HFONT Font = CreateFont(WindowSize.cy / 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, FONT_NAME);
 
 			HGDIOBJ OldFont = SelectObject(DeviceContext, Font);
 
@@ -295,11 +295,13 @@ LRESULT CALLBACK WindowProcedure(HWND Window, UINT Message, WPARAM WParam, LPARA
 
 			TCHAR Buffer[16];
 
-			int TotalWidth = 0;
+			int TotalWidth = WindowSize.cy * SIZE_RATIO / SIZE_DENOM;
+
+			int CurrentWidth = 0;
 
 			if (Settings.ShowCpuAndMemoryUsage)
 			{
-				SetRect(&Rect, WindowHeight * SIZE_RATIO / SIZE_DENOM * TotalWidth / SIZE_DENOM + PADDING, 0, 0, WindowHeight - 1);
+				SetRect(&Rect, TotalWidth * CurrentWidth / SIZE_DENOM + PADDING, 0, 0, WindowSize.cy - 1);
 
 				_stprintf(Buffer, _T("CPU: %2d %%"), GetCpuUsage());
 
@@ -309,12 +311,12 @@ LRESULT CALLBACK WindowProcedure(HWND Window, UINT Message, WPARAM WParam, LPARA
 
 				DrawText(DeviceContext, Buffer, (int)_tcslen(Buffer), &Rect, DT_BOTTOM | DT_SINGLELINE | DT_NOCLIP);
 
-				TotalWidth += SIZE_CPU_MEM_COLUMN;
+				CurrentWidth += SIZE_CPU_MEM_COLUMN;
 			}
 
 			if (Settings.ShowDiskIoSpeeds)
 			{
-				SetRect(&Rect, WindowHeight * SIZE_RATIO / SIZE_DENOM * TotalWidth / SIZE_DENOM + PADDING, 0, 0, WindowHeight - 1);
+				SetRect(&Rect, TotalWidth * CurrentWidth / SIZE_DENOM + PADDING, 0, 0, WindowSize.cy - 1);
 
 				_stprintf(Buffer, _T("DR: "));
 
@@ -332,12 +334,12 @@ LRESULT CALLBACK WindowProcedure(HWND Window, UINT Message, WPARAM WParam, LPARA
 
 				DrawText(DeviceContext, Buffer, (int)_tcslen(Buffer), &Rect, DT_BOTTOM | DT_SINGLELINE | DT_NOCLIP);
 
-				TotalWidth += SIZE_DISK_IO_COLUMN;
+				CurrentWidth += SIZE_DISK_IO_COLUMN;
 			}
 
 			if (Settings.ShowNetworkTrafficSpeeds)
 			{
-				SetRect(&Rect, WindowHeight * SIZE_RATIO / SIZE_DENOM * TotalWidth / SIZE_DENOM + PADDING, 0, 0, WindowHeight - 1);
+				SetRect(&Rect, TotalWidth * CurrentWidth / SIZE_DENOM + PADDING, 0, 0, WindowSize.cy - 1);
 
 				_stprintf(Buffer, _T("UP: "));
 
@@ -355,7 +357,7 @@ LRESULT CALLBACK WindowProcedure(HWND Window, UINT Message, WPARAM WParam, LPARA
 
 				DrawText(DeviceContext, Buffer, (int)_tcslen(Buffer), &Rect, DT_BOTTOM | DT_SINGLELINE | DT_NOCLIP);
 
-				TotalWidth += SIZE_NETWORK_COLUMN;
+				CurrentWidth += SIZE_NETWORK_COLUMN;
 			}
 			
 			SelectObject(DeviceContext, OldFont);
