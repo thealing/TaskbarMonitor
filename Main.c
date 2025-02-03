@@ -197,8 +197,6 @@ LRESULT CALLBACK WindowProcedure(HWND Window, UINT Message, WPARAM WParam, LPARA
 
 	static HWND AppContainerWindow;
 
-	static RECT AppContainerRect;
-
 	switch (Message)
 	{
 		case WM_CREATE:
@@ -223,15 +221,6 @@ LRESULT CALLBACK WindowProcedure(HWND Window, UINT Message, WPARAM WParam, LPARA
 			if (AppContainerWindow == NULL)
 			{
 				LogMessage(LOG_ERROR, _T("Cannot find the app container window."));
-
-				PostQuitMessage(QUIT_ERROR);
-
-				return 0;
-			}
-
-			if (GetWindowRect(AppContainerWindow, &AppContainerRect) == FALSE)
-			{
-				LogMessage(LOG_ERROR, _T("Cannot get the dimensions of the container window."));
 
 				PostQuitMessage(QUIT_ERROR);
 
@@ -463,13 +452,19 @@ LRESULT CALLBACK WindowProcedure(HWND Window, UINT Message, WPARAM WParam, LPARA
 				return 0;
 			}
 
-			RECT NewAppContainerRect = { 0 };
+			RECT WindowRect = { 0 };
 
-			GetWindowRect(AppContainerWindow, &NewAppContainerRect);
+			GetWindowRect(Window, &WindowRect);
 
-			if (memcmp(&NewAppContainerRect, &AppContainerRect, sizeof(RECT)) != 0)
+			RECT AppContainerRect = { 0 };
+
+			GetWindowRect(AppContainerWindow, &AppContainerRect);
+
+			RECT IntersectionRect;
+
+			if (IntersectRect(&IntersectionRect, &WindowRect, &AppContainerRect))
 			{
-				LogMessage(LOG_INFO, _T("Change detected."));
+				LogMessage(LOG_INFO, _T("Overlap detected."));
 
 				PostQuitMessage(QUIT_CHANGED);
 
