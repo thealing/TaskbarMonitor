@@ -62,7 +62,13 @@ void InitSettings()
 
 	Settings.Transparent = TRUE;
 
-	LoadSettings();
+	Settings.ShowCpuAndMemoryUsage = TRUE;
+
+	Settings.ShowDiskIoSpeeds = TRUE;
+
+	Settings.ShowNetworkTrafficSpeeds = TRUE;
+
+	// LoadSettings();
 
 	SaveSettings();
 }
@@ -91,9 +97,9 @@ BOOL ShowSettingsDialog(HWND Window)
 
 	AppendMenu(Menu, MF_STRING | MF_CHECKED * Settings.ShowCpuAndMemoryUsage, MENU_TOGGLE_CPU_MEM, TEXT("Show CPU and memory usage"));
 
-	AppendMenu(Menu, MF_STRING | MF_CHECKED * Settings.ShowNetworkTrafficSpeeds, MENU_TOGGLE_NETWORK_SPEED, TEXT("Show network traffic speeds"));
-
 	AppendMenu(Menu, MF_STRING | MF_CHECKED * Settings.ShowDiskIoSpeeds, MENU_TOGGLE_DISK_SPEED, TEXT("Show disk read and write speeds"));
+
+	AppendMenu(Menu, MF_STRING | MF_CHECKED * Settings.ShowNetworkTrafficSpeeds, MENU_TOGGLE_NETWORK_SPEED, TEXT("Show network traffic speeds"));
 
 	AppendMenu(Menu, MF_SEPARATOR, 0, NULL);
 
@@ -137,15 +143,15 @@ BOOL ShowSettingsDialog(HWND Window)
 
 			break;
 		}
-		case MENU_TOGGLE_NETWORK_SPEED:
-		{
-			Settings.ShowNetworkTrafficSpeeds ^= TRUE;
-
-			break;
-		}
 		case MENU_TOGGLE_DISK_SPEED:
 		{
 			Settings.ShowDiskIoSpeeds ^= TRUE;
+
+			break;
+		}
+		case MENU_TOGGLE_NETWORK_SPEED:
+		{
+			Settings.ShowNetworkTrafficSpeeds ^= TRUE;
 
 			break;
 		}

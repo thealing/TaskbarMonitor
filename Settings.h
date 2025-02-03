@@ -14,9 +14,9 @@ struct SETTINGS
 
 	BOOL ShowCpuAndMemoryUsage;
 
-	BOOL ShowNetworkTrafficSpeeds;
-
 	BOOL ShowDiskIoSpeeds;
+
+	BOOL ShowNetworkTrafficSpeeds;
 };
 
 enum MENU_OPTION
@@ -31,9 +31,9 @@ enum MENU_OPTION
 
 	MENU_TOGGLE_CPU_MEM,
 
-	MENU_TOGGLE_NETWORK_SPEED,
-
 	MENU_TOGGLE_DISK_SPEED,
+
+	MENU_TOGGLE_NETWORK_SPEED,
 
 	MENU_CLOSE
 };

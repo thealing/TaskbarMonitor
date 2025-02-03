@@ -18,6 +18,16 @@
 
 #define PADDING 3
 
+#define SIZE_RATIO 750
+
+#define SIZE_CPU_MEM_COLUMN 30
+
+#define SIZE_DISK_IO_COLUMN 36
+
+#define SIZE_NETWORK_COLUMN 34
+
+#define SIZE_DENOM 100
+
 enum QUIT_CODE 
 {
 	QUIT_ERROR,

@@ -108,7 +108,19 @@ QUIT_CODE RunWindow()
 
 	WindowHeight = AppContainerSize.cy - PADDING * 2;
 
-	WindowWidth = WindowHeight * 750 / 100;
+	SETTINGS Settings;
+
+	GetSettings(&Settings);
+
+	int TotalWidth = 0;
+
+	TotalWidth += SIZE_CPU_MEM_COLUMN * Settings.ShowCpuAndMemoryUsage;
+
+	TotalWidth += SIZE_DISK_IO_COLUMN * Settings.ShowDiskIoSpeeds;
+
+	TotalWidth += SIZE_NETWORK_COLUMN * Settings.ShowNetworkTrafficSpeeds;
+
+	WindowWidth = WindowHeight * SIZE_RATIO / SIZE_DENOM * TotalWidth / SIZE_DENOM;
 
 	SIZE ReducedSize = { AppContainerSize.cx - WindowWidth - PADDING * 2, AppContainerSize.cy };
 
@@ -283,71 +295,68 @@ LRESULT CALLBACK WindowProcedure(HWND Window, UINT Message, WPARAM WParam, LPARA
 
 			TCHAR Buffer[16];
 
-			// CPU PERCENTAGE
+			int TotalWidth = 0;
 
-			SetRect(&Rect, PADDING, 0, 0, 0);
+			if (Settings.ShowCpuAndMemoryUsage)
+			{
+				SetRect(&Rect, WindowHeight * SIZE_RATIO / SIZE_DENOM * TotalWidth / SIZE_DENOM + PADDING, 0, 0, WindowHeight - 1);
 
-			_stprintf(Buffer, _T("CPU: %2d %%"), GetCpuUsage());
-			
-			DrawText(DeviceContext, Buffer, (int)_tcslen(Buffer), &Rect, DT_TOP | DT_SINGLELINE | DT_NOCLIP);
+				_stprintf(Buffer, _T("CPU: %2d %%"), GetCpuUsage());
 
-			// MEMORY PERCENTAGE
+				DrawText(DeviceContext, Buffer, (int)_tcslen(Buffer), &Rect, DT_TOP | DT_SINGLELINE | DT_NOCLIP);
 
-			SetRect(&Rect, PADDING, 0, 0, WindowHeight - 1);
+				_stprintf(Buffer, _T("MEM: %2d %%"), GetMemoryUsage());
 
-			_stprintf(Buffer, _T("MEM: %2d %%"), GetMemoryUsage());
+				DrawText(DeviceContext, Buffer, (int)_tcslen(Buffer), &Rect, DT_BOTTOM | DT_SINGLELINE | DT_NOCLIP);
 
-			DrawText(DeviceContext, Buffer, (int)_tcslen(Buffer), &Rect, DT_BOTTOM | DT_SINGLELINE | DT_NOCLIP);
+				TotalWidth += SIZE_CPU_MEM_COLUMN;
+			}
 
-			// UPLOAD SPEED
+			if (Settings.ShowDiskIoSpeeds)
+			{
+				SetRect(&Rect, WindowHeight * SIZE_RATIO / SIZE_DENOM * TotalWidth / SIZE_DENOM + PADDING, 0, 0, WindowHeight - 1);
 
-			SetRect(&Rect, WindowWidth * 28 / 100 + PADDING, 0, 0, 0);
+				_stprintf(Buffer, _T("DR: "));
 
-			_stprintf(Buffer, _T("UP: "));
+				FormatDataQuantity(Buffer + _tcslen(Buffer), GetDiskReadSpeed());
 
-			FormatDataQuantity(Buffer + _tcslen(Buffer), GetUploadSpeed());
+				_stprintf(Buffer + _tcslen(Buffer), _T("/s"));
 
-			_stprintf(Buffer + _tcslen(Buffer), _T("/s"));
+				DrawText(DeviceContext, Buffer, (int)_tcslen(Buffer), &Rect, DT_TOP | DT_SINGLELINE | DT_NOCLIP);
 
-			DrawText(DeviceContext, Buffer, (int)_tcslen(Buffer), &Rect, DT_TOP | DT_SINGLELINE | DT_NOCLIP);
+				_stprintf(Buffer, _T("DW: "));
 
-			// DOWNLOAD SPEED
+				FormatDataQuantity(Buffer + _tcslen(Buffer), GetDiskWriteSpeed());
 
-			SetRect(&Rect, WindowWidth * 28 / 100 + PADDING, 0, 0, WindowHeight - 1);
+				_stprintf(Buffer + _tcslen(Buffer), _T("/s"));
 
-			_stprintf(Buffer, _T("DN: "));
+				DrawText(DeviceContext, Buffer, (int)_tcslen(Buffer), &Rect, DT_BOTTOM | DT_SINGLELINE | DT_NOCLIP);
 
-			FormatDataQuantity(Buffer + _tcslen(Buffer), GetDownloadSpeed());
+				TotalWidth += SIZE_DISK_IO_COLUMN;
+			}
 
-			_stprintf(Buffer + _tcslen(Buffer), _T("/s"));
+			if (Settings.ShowNetworkTrafficSpeeds)
+			{
+				SetRect(&Rect, WindowHeight * SIZE_RATIO / SIZE_DENOM * TotalWidth / SIZE_DENOM + PADDING, 0, 0, WindowHeight - 1);
 
-			DrawText(DeviceContext, Buffer, (int)_tcslen(Buffer), &Rect, DT_BOTTOM | DT_SINGLELINE | DT_NOCLIP);
+				_stprintf(Buffer, _T("UP: "));
 
-			// DISK READ SPEED
-			
-			SetRect(&Rect, WindowWidth * 62 / 100 + PADDING, 0, 0, 0);
+				FormatDataQuantity(Buffer + _tcslen(Buffer), GetUploadSpeed());
 
-			_stprintf(Buffer, _T("DR: "));
+				_stprintf(Buffer + _tcslen(Buffer), _T("/s"));
 
-			FormatDataQuantity(Buffer + _tcslen(Buffer), GetDiskReadSpeed());
+				DrawText(DeviceContext, Buffer, (int)_tcslen(Buffer), &Rect, DT_TOP | DT_SINGLELINE | DT_NOCLIP);
 
-			_stprintf(Buffer + _tcslen(Buffer), _T("/s"));
+				_stprintf(Buffer, _T("DN: "));
 
-			DrawText(DeviceContext, Buffer, (int)_tcslen(Buffer), &Rect, DT_TOP | DT_SINGLELINE | DT_NOCLIP);
-			
-			// DISK WRITE SPEED
+				FormatDataQuantity(Buffer + _tcslen(Buffer), GetDownloadSpeed());
 
-			SetRect(&Rect, WindowWidth * 62 / 100 + PADDING, 0, 0, WindowHeight - 1);
+				_stprintf(Buffer + _tcslen(Buffer), _T("/s"));
 
-			_stprintf(Buffer, _T("DW: "));
+				DrawText(DeviceContext, Buffer, (int)_tcslen(Buffer), &Rect, DT_BOTTOM | DT_SINGLELINE | DT_NOCLIP);
 
-			FormatDataQuantity(Buffer + _tcslen(Buffer), GetDiskWriteSpeed());
-
-			_stprintf(Buffer + _tcslen(Buffer), _T("/s"));
-
-			DrawText(DeviceContext, Buffer, (int)_tcslen(Buffer), &Rect, DT_BOTTOM | DT_SINGLELINE | DT_NOCLIP);
-
-			// END
+				TotalWidth += SIZE_NETWORK_COLUMN;
+			}
 			
 			SelectObject(DeviceContext, OldFont);
 			
