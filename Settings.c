@@ -68,14 +68,14 @@ void InitSettings()
 
 	Settings.ShowNetworkTrafficSpeeds = TRUE;
 
-	// LoadSettings();
+	LoadSettings();
 
 	SaveSettings();
 }
 
 void GetSettings(SETTINGS* DestSettings)
 {
-	memcpy(DestSettings, &Settings, sizeof(SETTINGS));
+	memcpy(DestSettings, &Settings, sizeof(Settings));
 }
 
 BOOL ShowSettingsDialog(HWND Window)
@@ -112,6 +112,8 @@ BOOL ShowSettingsDialog(HWND Window)
 	MENU_OPTION Option = TrackPopupMenu(Menu, TPM_RETURNCMD, CursorPosition.x, CursorPosition.y, 0, Window, NULL);
 
 	DestroyMenu(Menu);
+
+	SETTINGS OldSettings = Settings;
 
 	switch (Option)
 	{
@@ -163,7 +165,19 @@ BOOL ShowSettingsDialog(HWND Window)
 		}
 	}
 
-	SaveSettings();
+	if (Settings.ShowCpuAndMemoryUsage == FALSE && Settings.ShowDiskIoSpeeds == FALSE && Settings.ShowNetworkTrafficSpeeds == FALSE)
+	{
+		Settings = OldSettings;
 
-	return TRUE;
+		MessageBox(Window, _T("At least one column must be selected!"), _T("Warning"), MB_ICONWARNING);
+	}
+
+	if (memcmp(&OldSettings, &Settings, sizeof(Settings)) != 0)
+	{
+		SaveSettings();
+
+		return TRUE;
+	}
+
+	return FALSE;
 }
