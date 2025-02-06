@@ -3,4 +3,5 @@ This is a Windows utility that displays the current CPU and memory usage, networ
 
 Written in Visual Studio 2019 using the Win32 API in C.
 
-![image](https://github.com/user-attachments/assets/fb5425fe-7624-4f00-a293-1b479b5c7718)
+![image](https://github.com/user-attachments/assets/5aa7dc3e-af5a-44e5-9fa1-b305fceee548)
+
