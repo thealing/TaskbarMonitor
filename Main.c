@@ -2,15 +2,15 @@
 
 int main()
 {
-	return Program();
+	return Run();
 }
 
 int WINAPI WinMain(_In_ HINSTANCE Instance, _In_opt_ HINSTANCE PreviousInstance, _In_ LPSTR CommandLine, _In_ int ShowMode)
 {
-	return Program();
+	return Run();
 }
 
-int Program()
+int Run()
 {
 	LogSetFile(LOG_FILE_NAME);
 
@@ -22,20 +22,20 @@ int Program()
 
 	WindowClass.hIcon = LoadIcon(NULL, IDI_APPLICATION);
 
-	WindowClass.lpszClassName = WINDOW_CLASS_NAME;
+	WindowClass.lpszClassName = MONITOR_WINDOW_CLASS;
 
 	WindowClass.lpfnWndProc = WindowProcedure;
 
 	if (RegisterClass(&WindowClass) == 0)
 	{
-		LogMessage(LOG_ERROR, _T("Failed to register the window class."));
+		LogMessage(LOG_ERROR, _T("Failed to register the monitor window class."));
 
 		return 1;
 	}
 
 	while (TRUE)
 	{
-		QUIT_CODE QuitCode = RunWindow();
+		QUIT_CODE QuitCode = InjectWindow();
 
 		if (QuitCode == QUIT_ERROR)
 		{
@@ -51,18 +51,9 @@ int Program()
 	return 0;
 }
 
-QUIT_CODE RunWindow()
+QUIT_CODE InjectWindow()
 {
-	HWND TaskbarWindow = FindTaskbarWindow();
-
-	if (TaskbarWindow == NULL)
-	{
-		LogMessage(LOG_ERROR, _T("Failed to find the taskbar window."));
-
-		return QUIT_ERROR;
-	}
-
-	HWND AppContainerWindow = FindAppContainerWindow(TaskbarWindow);
+	HWND AppContainerWindow = FindAppContainerWindow();
 
 	if (AppContainerWindow == NULL)
 	{
@@ -75,25 +66,7 @@ QUIT_CODE RunWindow()
 
 	if (GetWindowRect(AppContainerWindow, &AppContainerRect) == FALSE)
 	{
-		LogMessage(LOG_ERROR, _T("Failed to get the dimensions of the container window."));
-
-		return QUIT_ERROR;
-	}
-
-	HWND ParentWindow = GetParent(AppContainerWindow);
-
-	if (ParentWindow == NULL)
-	{
-		LogMessage(LOG_ERROR, _T("Failed to get the parent window."));
-
-		return QUIT_ERROR;
-	}
-
-	RECT ParentRect;
-
-	if (GetWindowRect(ParentWindow, &ParentRect) == FALSE)
-	{
-		LogMessage(LOG_ERROR, _T("Failed to get the dimensions of the parent window."));
+		LogMessage(LOG_ERROR, _T("Failed to get the dimensions of the app container."));
 
 		return QUIT_ERROR;
 	}
@@ -102,40 +75,20 @@ QUIT_CODE RunWindow()
 
 	GetRectSize(&AppContainerRect, &AppContainerSize);
 
-	int WindowHeight = AppContainerSize.cy - PADDING * 2;
+	HWND Window = CreateWindow(MONITOR_WINDOW_CLASS, NULL, WS_POPUP, 0, 0, 0, 0, NULL, NULL, NULL, NULL);
 
-	SETTINGS Settings;
-
-	GetSettings(&Settings);
-
-	int TotalWidth = 0;
-
-	TotalWidth += SIZE_CPU_MEM_COLUMN * Settings.ShowCpuAndMemoryUsage;
-
-	TotalWidth += SIZE_DISK_IO_COLUMN * Settings.ShowDiskIoSpeeds;
-
-	TotalWidth += SIZE_NETWORK_COLUMN * Settings.ShowNetworkTrafficSpeeds;
-
-	int WindowWidth = WindowHeight * SIZE_RATIO / SIZE_DENOM * TotalWidth / SIZE_DENOM;
-
-	SIZE ReducedSize = { AppContainerSize.cx - WindowWidth - PADDING * 2, AppContainerSize.cy };
-
-	if (SetWindowPos(AppContainerWindow, NULL, 0, 0, ReducedSize.cx, ReducedSize.cy, SWP_NOZORDER | SWP_NOMOVE) == FALSE)
+	if (Window == NULL)
 	{
-		LogMessage(LOG_ERROR, _T("Failed to adjust the size of the app container window."));
+		LogMessage(LOG_ERROR, _T("Failed to create the monitor window."));
 
 		return QUIT_ERROR;
 	}
 
-	int WindowX = AppContainerRect.left - ParentRect.left + ReducedSize.cx + PADDING;
-
-	int WindowY = AppContainerRect.top - ParentRect.top + PADDING;
-
-	HWND Window = CreateWindow(WINDOW_CLASS_NAME, NULL, WS_CHILD | WS_VISIBLE, WindowX, WindowY, WindowWidth, WindowHeight, ParentWindow, NULL, NULL, NULL);
-
-	if (Window == NULL)
+	if (InsertMonitorWindow(AppContainerWindow, Window) == FALSE)
 	{
-		LogMessage(LOG_ERROR, _T("Failed to create the main window."));
+		LogMessage(LOG_ERROR, _T("Failed to insert the monitor window."));
+
+		DestroyWindow(Window);
 
 		return QUIT_ERROR;
 	}
@@ -146,10 +99,14 @@ QUIT_CODE RunWindow()
 	{
 		LogMessage(LOG_ERROR, _T("Failed to set a timer."));
 
+		DestroyWindow(Window);
+
 		return QUIT_ERROR;
 	}
 
 	LogMessage(LOG_INFO, _T("Entering the message loop."));
+
+	ShowWindow(Window, SW_SHOW);
 
 	MSG Msg;
 
@@ -166,14 +123,16 @@ QUIT_CODE RunWindow()
 
 	if (KillTimer(Window, TimerId) == FALSE)
 	{
-		LogMessage(LOG_ERROR, _T("Failed to kill the timer."));
+		LogMessage(LOG_ERROR, _T("Failed to destroy the timer."));
+
+		DestroyWindow(Window);
 
 		return QUIT_ERROR;
 	}
 
 	if (DestroyWindow(Window) == FALSE)
 	{
-		LogMessage(LOG_ERROR, _T("Failed to destroy the main window."));
+		LogMessage(LOG_ERROR, _T("Failed to destroy the monitor window."));
 
 		return QUIT_ERROR;
 	}
@@ -195,6 +154,8 @@ LRESULT CALLBACK WindowProcedure(HWND Window, UINT Message, WPARAM WParam, LPARA
 {
 	static BOOL Created;
 
+	static ULONGLONG LastUpdateTime;
+
 	static HWND AppContainerWindow;
 
 	switch (Message)
@@ -205,18 +166,9 @@ LRESULT CALLBACK WindowProcedure(HWND Window, UINT Message, WPARAM WParam, LPARA
 
 			Created = TRUE;
 
-			HWND TaskbarWindow = FindTaskbarWindow();
+			LastUpdateTime = GetTickCount64();
 
-			if (TaskbarWindow == NULL)
-			{
-				LogMessage(LOG_ERROR, _T("Cannot find the taskbar window."));
-
-				PostQuitMessage(QUIT_ERROR);
-
-				return 0;
-			}
-
-			AppContainerWindow = FindAppContainerWindow(TaskbarWindow);
+			AppContainerWindow = FindAppContainerWindow();
 
 			if (AppContainerWindow == NULL)
 			{
@@ -392,21 +344,21 @@ LRESULT CALLBACK WindowProcedure(HWND Window, UINT Message, WPARAM WParam, LPARA
 
 					if (FillRect(BufferedDeviceContext, &ClientRect, Brush) == FALSE)
 					{
-						LogMessage(LOG_WARNING, _T("Failed to clear the buffered device context."));
+						LogMessage(LOG_WARNING, _T("Failed to clear the paint buffer."));
 					}
 
 					DeleteObject(Brush);
 
 					if (BufferedPaintSetAlpha(PaintBuffer, NULL, 255) != S_OK)
 					{
-						LogMessage(LOG_WARNING, _T("Failed to set the alpha."));
+						LogMessage(LOG_WARNING, _T("Failed to set the opacity of the paint buffer."));
 					}
 
 					EndBufferedPaint(PaintBuffer, TRUE);
 				}
 				else
 				{
-					LogMessage(LOG_WARNING, _T("Failed to begin buffered painting."));
+					LogMessage(LOG_WARNING, _T("Failed to create the paint buffer."));
 				}
 
 				BufferedPaintUnInit();
@@ -466,15 +418,22 @@ LRESULT CALLBACK WindowProcedure(HWND Window, UINT Message, WPARAM WParam, LPARA
 			{
 				LogMessage(LOG_INFO, _T("Overlap detected."));
 
-				PostQuitMessage(QUIT_CHANGED);
-
-				return 0;
+				InsertMonitorWindow(AppContainerWindow, Window);
 			}
+			else
+			{
+				ULONGLONG CurrentTime = GetTickCount64();
 
-			UpdateCounters();
+				if (CurrentTime > LastUpdateTime + MEASURE_INTERVAL)
+				{
+					LastUpdateTime = max(CurrentTime - MEASURE_INTERVAL, LastUpdateTime + MEASURE_INTERVAL);
 
-			RedrawWindow(Window, NULL, NULL, RDW_ERASE | RDW_INVALIDATE);
+					UpdateCounters();
 
+					RedrawWindow(Window, NULL, NULL, RDW_ERASE | RDW_INVALIDATE);
+				}
+			}
+			
 			return 0;
 		}
 	}
@@ -482,105 +441,223 @@ LRESULT CALLBACK WindowProcedure(HWND Window, UINT Message, WPARAM WParam, LPARA
 	return DefWindowProc(Window, Message, WParam, LParam);
 }
 
-BOOL IsOverlappingTaskbar(HWND Window, BOOL* Overlap)
+BOOL InsertMonitorWindow(HWND AppContainerWindow, HWND MonitorWindow)
 {
-	RECT WindowRect = { 0 };
+	RECT AppContainerRect;
 
-	GetWindowRect(Window, &WindowRect);
-
-	HWND TaskbarWindow = FindTaskbarWindow();
-
-	if (TaskbarWindow == NULL) 
+	if (GetWindowRect(AppContainerWindow, &AppContainerRect) == FALSE)
 	{
-		LogMessage(LOG_ERROR, _T("The taskbar window disappeared."));
+		LogMessage(LOG_ERROR, _T("Failed to get the dimensions of the app container."));
 
 		return FALSE;
 	}
 
-	HWND AppContainerWindow = FindAppContainerWindow(TaskbarWindow);
+	HWND ToolbarWindow = GetParent(AppContainerWindow);
 
-	if (AppContainerWindow == NULL) 
+	if (ToolbarWindow == NULL)
 	{
-		LogMessage(LOG_ERROR, _T("The app container window disappeared."));
+		LogMessage(LOG_ERROR, _T("Failed to find the toolbar window window."));
 
 		return FALSE;
 	}
 
-	RECT AppContainerRect = { 0 };
+	RECT ToolbarRect;
 
-	GetWindowRect(AppContainerWindow, &AppContainerRect);
+	if (GetWindowRect(ToolbarWindow, &ToolbarRect) == FALSE)
+	{
+		LogMessage(LOG_ERROR, _T("Failed to get the dimensions of the toolbar window."));
 
-	RECT IntersectionRect;
+		return FALSE;
+	}
 
-	*Overlap = IntersectRect(&IntersectionRect, &WindowRect, &AppContainerRect);
+	SIZE AppContainerSize;
+
+	GetRectSize(&AppContainerRect, &AppContainerSize);
+
+	SETTINGS Settings;
+
+	GetSettings(&Settings);
+
+	int TotalWidth = 0;
+
+	TotalWidth += SIZE_CPU_MEM_COLUMN * Settings.ShowCpuAndMemoryUsage;
+
+	TotalWidth += SIZE_DISK_IO_COLUMN * Settings.ShowDiskIoSpeeds;
+
+	TotalWidth += SIZE_NETWORK_COLUMN * Settings.ShowNetworkTrafficSpeeds;
+
+	int MonitorHeight = AppContainerSize.cy - PADDING * 2;
+
+	int MonitorWidth = MonitorHeight * SIZE_RATIO / SIZE_DENOM * TotalWidth / SIZE_DENOM;
+
+	if (MonitorWidth <= 0 || MonitorHeight <= 0)
+	{
+		LogMessage(LOG_ERROR, _T("The monitor window size is not positive."));
+
+		return FALSE;
+	}
+
+	SIZE ReducedSize = { AppContainerSize.cx - MonitorWidth - PADDING * 2, AppContainerSize.cy };
+
+	if (ReducedSize.cx <= 0 || ReducedSize.cy <= 0)
+	{
+		LogMessage(LOG_ERROR, _T("The reduced app container window size is not positive."));
+
+		return FALSE;
+	}
+
+	if (SetWindowPos(AppContainerWindow, NULL, 0, 0, ReducedSize.cx, ReducedSize.cy, SWP_NOZORDER | SWP_NOMOVE) == FALSE)
+	{
+		LogMessage(LOG_ERROR, _T("Failed to adjust the size of the app container window."));
+
+		return FALSE;
+	}
+
+	int MonitorX = AppContainerRect.left - ToolbarRect.left + ReducedSize.cx + PADDING;
+
+	int MonitorY = AppContainerRect.top - ToolbarRect.top + PADDING;
+
+	if (SetWindowPos(AppContainerWindow, NULL, 0, 0, ReducedSize.cx, ReducedSize.cy, SWP_NOZORDER | SWP_NOMOVE) == FALSE)
+	{
+		LogMessage(LOG_ERROR, _T("Failed to adjust the size of the app container window."));
+
+		return FALSE;
+	}
+
+	if (SetParent(MonitorWindow, ToolbarWindow) == NULL)
+	{
+		LogMessage(LOG_ERROR, _T("Failed to set the parent of the monitor window."));
+
+		return FALSE;
+	}
+
+	if (SetWindowPos(MonitorWindow, NULL, MonitorX, MonitorY, MonitorWidth, MonitorHeight, SWP_NOZORDER) == FALSE)
+	{
+		LogMessage(LOG_ERROR, _T("Failed to position the monitor window."));
+
+		return FALSE;
+	}
 
 	return TRUE;
 }
 
-BOOL IsOverlappingWindow(HWND Window, RECT Rect)
+HWND FindAppContainerWindow()
 {
-	HWND ChildWindow = GetWindow(Window, GW_CHILD);
+	HRESULT Result = S_OK;
 
-	while (ChildWindow != NULL) 
+	IUIAutomation* Automation = NULL;
+
+	IUIAutomationElement* RootElement = NULL;
+
+	IUIAutomationElement* TrayElement = NULL;
+
+	IUIAutomationElement* AppListElement = NULL;
+
+	VARIANT TrayClassName = { 0 };
+
+	VARIANT AppListClassName = { 0 };
+
+	IUIAutomationCondition* TrayCondition = NULL;
+
+	IUIAutomationCondition* AppListCondition = NULL;
+
+	HWND AppListWindow = NULL;
+
+	HWND AppContainerWindow = NULL;
+
+	Result = CoInitialize(NULL);
+
+	if (FAILED(Result))
 	{
-		RECT ChildRect = { 0 };
-
-		GetWindowRect(ChildWindow, &ChildRect);
-
-		RECT IntersectionRect;
-
-		if (IntersectRect(&IntersectionRect, &Rect, &ChildRect)) 
-		{
-			return TRUE;
-		}
-
-		if (IsOverlappingWindow(ChildWindow, Rect)) 
-		{
-			return TRUE;
-		}
-
-		ChildWindow = GetWindow(ChildWindow, GW_HWNDNEXT);
+		goto Cleanup;
 	}
 
-	return FALSE;
-}
+	Result = CoCreateInstance(&CLSID_CUIAutomation, NULL, CLSCTX_INPROC_SERVER, &IID_IUIAutomation, (void**)&Automation);
 
-HWND FindTaskbarWindow()
-{
-	return FindWindow(TASKBAR_WINDOW_TEXT, NULL);
-}
-
-HWND FindAppContainerWindow(HWND Window)
-{
-	HWND ChildWindow = GetWindow(Window, GW_CHILD);
-
-	while (ChildWindow != NULL) 
+	if (FAILED(Result) || Automation == NULL)
 	{
-		if (IsRunningAppsWindow(ChildWindow)) 
-		{
-			return Window;
-		}
-
-		HWND FoundWindow = FindAppContainerWindow(ChildWindow);
-
-		if (FoundWindow != NULL) 
-		{
-			return FoundWindow;
-		}
-
-		ChildWindow = GetWindow(ChildWindow, GW_HWNDNEXT);
+		goto Cleanup;
 	}
 
-	return NULL;
+	Result = Automation->lpVtbl->GetRootElement(Automation, &RootElement);
+
+	if (FAILED(Result) || RootElement == NULL)
+	{
+		goto Cleanup;
+	}
+
+	TrayClassName.vt = VT_BSTR;
+
+	TrayClassName.bstrVal = SysAllocString(L"Shell_TrayWnd");
+
+	Result = Automation->lpVtbl->CreatePropertyCondition(Automation, UIA_ClassNamePropertyId, TrayClassName, &TrayCondition);
+
+	if (FAILED(Result) || TrayCondition == NULL)
+	{
+		goto Cleanup;
+	}
+
+	Result = RootElement->lpVtbl->FindFirst(RootElement, TreeScope_Children, TrayCondition, &TrayElement);
+
+	if (FAILED(Result) || TrayElement == NULL)
+	{
+		goto Cleanup;
+	}
+
+	AppListClassName.vt = VT_BSTR;
+
+	AppListClassName.bstrVal = SysAllocString(L"MSTaskListWClass");
+
+	Result = Automation->lpVtbl->CreatePropertyCondition(Automation, UIA_ClassNamePropertyId, AppListClassName, &AppListCondition);
+
+	if (FAILED(Result) || AppListCondition == NULL)
+	{
+		goto Cleanup;
+	}
+
+	Result = TrayElement->lpVtbl->FindFirst(TrayElement, TreeScope_Descendants, AppListCondition, &AppListElement);
+
+	if (FAILED(Result) || AppListElement == NULL)
+	{
+		goto Cleanup;
+	}
+
+	Result = AppListElement->lpVtbl->get_CurrentNativeWindowHandle(AppListElement, &AppListWindow);
+
+	if (FAILED(Result) || AppListWindow == NULL)
+	{
+		goto Cleanup;
+	}
+
+	AppContainerWindow = GetParent(AppListWindow);
+
+Cleanup:
+
+	SysFreeString(TrayClassName.bstrVal);
+
+	SysFreeString(AppListClassName.bstrVal);
+
+	SafeRelease(Automation);
+
+	SafeRelease(RootElement);
+
+	SafeRelease(TrayElement);
+
+	SafeRelease(AppListElement);
+
+	SafeRelease(TrayCondition);
+
+	SafeRelease(AppListCondition);
+
+	return AppContainerWindow;
 }
 
-BOOL IsRunningAppsWindow(HWND Window)
+void SafeRelease(IUnknown* Unknown)
 {
-	TCHAR WindowTitle[64];
-
-	GetWindowText(Window, WindowTitle, ARRAYSIZE(WindowTitle));
-
-	return _tcsstr(WindowTitle, RUNNING_APPS_TEXT) != NULL;
+	if (Unknown != NULL)
+	{
+		Unknown->lpVtbl->Release(Unknown);
+	}
 }
 
 void GetRectSize(const RECT* Rect, SIZE* Size)

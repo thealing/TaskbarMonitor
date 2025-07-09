@@ -87,23 +87,23 @@ BOOL ShowSettingsDialog(HWND Window)
 		return FALSE;
 	}
 
-	AppendMenu(Menu, MF_STRING, MENU_CHANGE_TEXT_COLOR, TEXT("Change text color"));
+	AppendMenu(Menu, MF_STRING, MENU_CHANGE_TEXT_COLOR, _T("Change text color"));
 
-	AppendMenu(Menu, MF_STRING, MENU_CHANGE_BACKGROUND_COLOR, TEXT("Change background color"));
+	AppendMenu(Menu, MF_STRING, MENU_CHANGE_BACKGROUND_COLOR, _T("Change background color"));
 
-	AppendMenu(Menu, MF_STRING | MF_CHECKED * Settings.Transparent, MENU_TOGGLE_TRANSPARENCY, TEXT("Transparent background"));
-
-	AppendMenu(Menu, MF_SEPARATOR, 0, NULL);
-
-	AppendMenu(Menu, MF_STRING | MF_CHECKED * Settings.ShowCpuAndMemoryUsage, MENU_TOGGLE_CPU_MEM, TEXT("Show CPU and memory usage"));
-
-	AppendMenu(Menu, MF_STRING | MF_CHECKED * Settings.ShowDiskIoSpeeds, MENU_TOGGLE_DISK_SPEED, TEXT("Show disk read and write speeds"));
-
-	AppendMenu(Menu, MF_STRING | MF_CHECKED * Settings.ShowNetworkTrafficSpeeds, MENU_TOGGLE_NETWORK_SPEED, TEXT("Show network traffic speeds"));
+	AppendMenu(Menu, MF_STRING | MF_CHECKED * Settings.Transparent, MENU_TOGGLE_TRANSPARENCY, _T("Transparent background"));
 
 	AppendMenu(Menu, MF_SEPARATOR, 0, NULL);
 
-	AppendMenu(Menu, MF_STRING, MENU_CLOSE, TEXT("Close"));
+	AppendMenu(Menu, MF_STRING | MF_CHECKED * Settings.ShowCpuAndMemoryUsage, MENU_TOGGLE_CPU_MEM, _T("Show CPU and memory usage"));
+
+	AppendMenu(Menu, MF_STRING | MF_CHECKED * Settings.ShowDiskIoSpeeds, MENU_TOGGLE_DISK_SPEED, _T("Show disk read and write speeds"));
+
+	AppendMenu(Menu, MF_STRING | MF_CHECKED * Settings.ShowNetworkTrafficSpeeds, MENU_TOGGLE_NETWORK_SPEED, _T("Show network traffic speeds"));
+
+	AppendMenu(Menu, MF_SEPARATOR, 0, NULL);
+
+	AppendMenu(Menu, MF_STRING, MENU_CLOSE, _T("Close"));
 
 	POINT CursorPosition;
 

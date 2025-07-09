@@ -6,15 +6,17 @@
 
 #define LOG_FILE_NAME _T("TaskbarMonitor.log")
 
-#define WINDOW_CLASS_NAME _T("A0EBA48E-45B2-4AB9-84D8-286CA6C89637")
+#define MONITOR_WINDOW_CLASS _T("TaskbarMonitorWindowClass")
 
-#define TASKBAR_WINDOW_TEXT _T("Shell_TrayWnd")
+#define TASKBAR_WINDOW_CLASS _T("Shell_TrayWnd")
 
-#define RUNNING_APPS_TEXT _T("Running applications")
+#define APP_CONTAINER_WINDOW_CLASS _T("MSTaskSwWClass")
 
 #define FONT_NAME _T("Calibri")
 
-#define UPDATE_INTERVAL 1000
+#define UPDATE_INTERVAL 100
+
+#define MEASURE_INTERVAL 1000
 
 #define PADDING 3
 
@@ -41,17 +43,17 @@ enum QUIT_CODE
 	QUIT_COUNT
 };
 
-int Program();
+int Run();
 
-QUIT_CODE RunWindow();
+QUIT_CODE InjectWindow();
 
 LRESULT CALLBACK WindowProcedure(HWND Window, UINT Message, WPARAM WParam, LPARAM LParam);
 
-HWND FindTaskbarWindow();
+BOOL InsertMonitorWindow(HWND AppContainerWindow, HWND MonitorWindow);
 
-HWND FindAppContainerWindow(HWND Window);
+HWND FindAppContainerWindow();
 
-BOOL IsRunningAppsWindow(HWND Window);
+void SafeRelease(IUnknown* Unknown);
 
 void GetRectSize(const RECT* Rect, SIZE* Size);
 

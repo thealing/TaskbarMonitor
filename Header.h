@@ -14,9 +14,13 @@
 
 #include <uxtheme.h>
 
+#include <UiAutomationclient.h>
+
 #pragma comment(lib, "iphlpapi.lib")
 
 #pragma comment(lib, "UxTheme.lib")
+
+#pragma comment(lib, "Uiautomationcore.lib")
 
 typedef enum LOG_LEVEL LOG_LEVEL;
 
