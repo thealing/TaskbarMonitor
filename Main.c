@@ -216,7 +216,7 @@ LRESULT CALLBACK WindowProcedure(HWND Window, UINT Message, WPARAM WParam, LPARA
 
 			GetSettings(&Settings);
 
-			PAINTSTRUCT PaintStruct;
+			PAINTSTRUCT PaintStruct = { 0 };
 
 			HDC DeviceContext = BeginPaint(Window, &PaintStruct);
 
@@ -232,9 +232,9 @@ LRESULT CALLBACK WindowProcedure(HWND Window, UINT Message, WPARAM WParam, LPARA
 
 			HGDIOBJ OldFont = SelectObject(DeviceContext, Font);
 
-			RECT Rect;
+			RECT Rect = { 0 };
 
-			TCHAR Buffer[16];
+			TCHAR Buffer[64] = { 0 };
 
 			int TotalWidth = WindowSize.cy * SIZE_RATIO / SIZE_DENOM;
 
